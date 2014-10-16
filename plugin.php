@@ -29,12 +29,10 @@ For full license details see license.txt
  */
 function yourls_imex_get_export_formats() {
 	return array(
-		'xml' => 'Extensible Markup Language (XML)',
-	//	'apache' => 'Apache',
 		'csv' => 'Comma Separated Values (CSV)',
-		'rss' => 'Really Simple Syndication (RSS)',
 	);
 }
+session_start();
 
 /**
  * Add the plugin page in the menu
@@ -48,41 +46,42 @@ function yourls_imex_add_page() {
  */
 function yourls_imex_do_page() {
 	$export_urls = array();
-
-	foreach ( yourls_imex_get_export_formats() as $export_option => $export_label ) {
-		$export_urls[$export_option] = '<a href="' . yourls_nonce_url( 'imex_export_' . $export_option, yourls_add_query_arg( array( 'export' => $export_option ) ) ) . '" title="Export URLs in ' . $export_label . ' format">' . $export_label . '</a>';
-	}
-
-	echo '<h2>Import</h2>
-
-		<p>Here you can import redirections from an existing a CSV file.</p>
-
-		<form action="' . yourls_remove_query_arg( array( 'import', 'export', 'nonce', 'action' ) ) . '" method="post" accept-charset="utf-8" enctype="multipart/form-data">
-			' . yourls_nonce_field( 'imex_import', 'nonce', false, false ) . '
-
-			<input type="file" name="import" value="" />
-			<input class="button-primary" type="submit" name="import" value="Upload" />
-		</form>';
+	global $ydb;
+	$rows = $ydb->get_results("show tables");
+	$table_url = YOURLS_DB_TABLE_LOG;
 
 	echo <<<HTML
 		<br />
 		<h2>Export</h2>
 HTML;
+	$shorturls = array();
+	$items = $ydb->get_results("select distinct shorturl from `$table_url`");
+	foreach($items as $item) {
+		$shorturls[] = $item->{"shorturl"};
+	}
+	echo '<form method="post" action="">';
+    echo '<select id="shorturl" name="shorturl"><OPTION>';
+    echo "Select a url</OPTION>";
+    foreach ($shorturls as $shorturl) {
+        echo "<OPTION value=\"$shorturl\">$shorturl</OPTION>";
+    }
+    echo '</SELECT>';
+    echo '<input type="submit" name="submit" value="submit"/>';
+    echo '</form>';
 
+	foreach ( yourls_imex_get_export_formats() as $export_option => $export_label ) {
+		$export_urls[$export_option] = '<a href="' . yourls_nonce_url( 'imex_export_' . $export_option, yourls_add_query_arg( array( 'export' => $export_option ) ) ) . '" title="Export URLs in ' . $export_label . ' format">' . $export_label . '</a>';
+	}
+	$_SESSION["shorturl"] = $_POST["shorturl"];
+	echo "<br>";
+	if (isset($_SESSION["shorturl"])) {
+		echo "<strong>Campaign chosen: </strong>" . $_SESSION["shorturl"];
+	} else {
+		echo "<strong>No campaign chosen.</strong>";
+	}
+	echo "<br><br>";
 	echo '<strong>Export URLs in</strong>: ' . implode( ' | ', $export_urls );
-
-	echo <<<HTML
-		<br /><br />
-		XML is the preferred option if you're importing and exporting between two YOURLS installations.
-		CSV & XML work with the <a href="http://urbangiraffe.com/plugins/redirection/">Redirection</a> plugin for WordPress by John Goodley too.
-HTML;
-
-	echo <<<HTML
-		<br /><br />
-		<h2>Donate</h2>
-
-		Did the plugin help you? <a href="http://gaut.am/donate/">Donate</a> to the author to keep him releasing more open source and free software!
-HTML;
+	echo "<br><br>";
 }
 
 /**
@@ -107,7 +106,7 @@ function yourls_imex_handle_post()
 
 		yourls_verify_nonce( 'imex_export_' . $format, $_GET['nonce'] );
 
-		if ( yourls_imex_export_urls( $format ) )
+		if ( yourls_imex_export_urls( $format , $_GET['shorturl']) )
 			die();
 		else
 			$message = 'YOURLS export failed!';

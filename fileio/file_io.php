@@ -11,14 +11,16 @@ class Red_FileIO
 
 		// Variables
 		$table_url = YOURLS_DB_TABLE_URL;
-		// Default SQL behavior
-		$where = '';
-		$sort_by_sql = 'timestamp';
-		$sort_order_sql = 'desc';
-
+		$table_log = YOURLS_DB_TABLE_LOG;
+		
 		// Main Query
-		$items = $ydb->get_results("SELECT * FROM `$table_url` WHERE 1=1 $where ORDER BY `$sort_by_sql` $sort_order_sql;");
-
+		if (isset($_SESSION["shorturl"])) {
+			$shorturl = $_SESSION["shorturl"];
+			$items = $ydb->get_results("SELECT * FROM `$table_log` where `shorturl`='$shorturl'");
+		} else {
+			return false;
+		}
+		session_destroy();
 		if ( !empty( $items ) )
 		{
 			require_once $type . '.php';
@@ -32,8 +34,31 @@ class Red_FileIO
 			else if ($type == 'apache')
 				$exporter = new Red_Apache_File();
 
-			$exporter->collect($items);
-			$exporter->feed();
+
+			$file = $shorturl . '.csv';
+			$contents = "click_id,click_time,shorturl,referrer,user_agent,ip_address,country_code\r\n";
+			foreach ($items as $item) {
+				$contents .= $this->escape($item->click_id) . "," . $this->escape($item->click_time) . "," . $this->escape($item->shorturl) . "," .
+							$this->escape($item->referrer) . "," . $this->escape($item->user_agent) . "," . $this->escape($items->ip_address) . "," .
+							$this->escape($item->country_code) . "\r\n";
+			}
+			if (file_put_contents("csv/" . $file, $contents) === false) {
+				return false;
+			}
+			if (file_exists("csv/" . $file)) {
+			    header('Content-Description: File Transfer');
+			    header('Content-Type: application/octet-stream');
+			    header('Content-Disposition: attachment; filename='.basename("csv/" . $file));
+			    header('Content-Transfer-Encoding: binary');
+			    header('Expires: 0');
+			    header('Cache-Control: must-revalidate');
+			    header('Pragma: public');
+			    header('Content-Length: ' . filesize("csv/" . $file));
+			    ob_clean();
+			    flush();
+			    readfile("csv/" . $file);
+			    exit;
+			}
 			return true;
 		}
 
@@ -64,6 +89,23 @@ class Red_FileIO
 		}
 
 		return 0;
+	}
+	function escape ($value)
+	{
+		// Escape any special values
+		$double = false;
+		if (strpos ($value, ',') !== false || $value == '')
+			$double = true;
+
+		if (strpos ($value, '"') !== false)
+		{
+			$double = true;
+			$value  = str_replace ('"', '""', $value);
+		}
+
+		if ($double)
+			$value = '"'.$value.'"';
+		return $value;
 	}
 
 	function load ( $data, $filename ) { }

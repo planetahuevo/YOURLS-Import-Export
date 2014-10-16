@@ -5,11 +5,17 @@
 class Red_Csv_File extends Red_FileIO
 {
 	function collect ($items) {
-		if ( count( $items ) > 0 )
-		{
-			foreach ( $items as $item )
-				$this->items[] = array ( 'source' => '/' . $item->keyword . '/', 'target' => stripslashes( $item->url ), 'hits' => $item->clicks );
-		}
+	if ( count( $items ) > 0 )
+			{
+				foreach ( $items as $item )
+					$this->items[] = array ('click_id'     =>  $item->click_id,
+					                        'click_time'   =>  $item->click_time,
+					                        'shorturl'     =>  $item->shorturl,
+					                        'referrer'     =>  $item->referrer,
+					                        'user_agent'   =>  $item->user_agent,
+					                        'ip_address'   =>  $item->ip_address,
+					                        'country_code' =>  $item->country_code);
+			}
 	}
 
 	function feed ($filename = '')
@@ -23,7 +29,7 @@ class Red_Csv_File extends Red_FileIO
 
 		if (count ($this->items) > 0)
 		{
-			echo "source,target,hits\r\n";
+			echo "click_id,click_time, shorturl, referrer, user_agent, ip_address, country_code\r\n";
 
 			foreach ($this->items AS $line)
 				echo implode (",", array_map (array (&$this, 'escape'), $line))."\r\n";
